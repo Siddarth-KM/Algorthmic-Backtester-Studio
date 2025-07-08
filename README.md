@@ -245,6 +245,7 @@ python Test_1.py
 - **Real-time Updates**: Live market data during trading hours
 - **Historical Accuracy**: Verified historical price data
 - **Missing Data Handling**: Robust handling of gaps and holidays
+-  **Machine Learning Model Optimization**: https://docs.google.com/spreadsheets/d/114MO0r3wBKPYmc0iBttv3qy1lljyg4AfW3NgKugEKNg/edit?usp=sharing
 
 ## 🔍 Troubleshooting
 
