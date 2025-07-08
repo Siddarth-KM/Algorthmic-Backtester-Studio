@@ -1,0 +1,31 @@
+# Project Requirements
+
+## 1. Business Requirements
+- Provide a web-based platform for users to backtest algorithmic trading strategies.
+- Return daily signals for the user to implement strategies in their own portfolios.
+- Support both traditional (X1, X2, X3) and machine learning-based strategies.
+- Allow users to visualize results and compare strategy performance.
+
+## 2. Functional Requirements
+- Users can select and configure different trading strategies.
+- Users can input stock tickers and date ranges for backtesting.
+- The system fetches historical data from Yahoo Finance and runs backtests.
+- Results are displayed with performance metrics and charts.
+
+## 3. Non-Functional Requirements
+- The backend must respond to API requests within 2 seconds for typical workloads.
+- The system should support at least 100 concurrent users.
+- The application must be cross-platform (Windows, macOS, Linux).
+- Data privacy: No user data is stored permanently.
+- The UI should be responsive and user-friendly.
+
+## 4. Technical Requirements
+- Backend: Python 3.8+, Flask, pandas, yfinance, ta, xgboost, scikit-learn, numpy, scipy.
+- Frontend: React, recharts, tailwindcss, lucide-react.
+- Use RESTful API for frontend-backend communication.
+- Source code and requirements must be version-controlled with Git.
+- All dependencies must be listed in requirements.txt and package.json.
+
+---
+
+This document outlines the business, functional, non-functional, and technical requirements for the Algorithmic Backtester Studio project.
