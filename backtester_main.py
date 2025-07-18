@@ -1528,6 +1528,8 @@ def run_standard_backtest(strategy, ticker, testPeriod, customStart, longMA=None
     elif testPeriod == '7' and customStart:
         try:
             user_start = pd.to_datetime(customStart)
+            if not isinstance(user_start, pd.Timestamp):
+                user_start = pd.Timestamp(user_start)
         except Exception:
             user_start = end - pd.DateOffset(months=1)
     else:
@@ -1551,7 +1553,9 @@ def run_standard_backtest(strategy, ticker, testPeriod, customStart, longMA=None
         print(f"Warning: DataFrame index is not DatetimeIndex, converting...")
         df.index = pd.to_datetime(df.index)
     
-    # Create filtered DataFrame for user-requested period only
+    # Ensure user_start is a pd.Timestamp for comparison
+    if not isinstance(user_start, pd.Timestamp):
+        user_start = pd.Timestamp(user_start)
     df_filtered = df[df.index >= user_start].copy()
     
     # Run the strategy on the full dataset (including the extra days for indicators)
