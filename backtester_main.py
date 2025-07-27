@@ -105,27 +105,16 @@ def plot_trades_ml(df, entry_dates, exit_dates, returns, title, stats, price_col
 
     # Entry/exit markers (only if there are trades)
     if entry_dates and exit_dates and returns:
-        win_mask = np.array(returns) > 0
-        loss_mask = ~win_mask
         entry_dates_pd = pd.to_datetime(entry_dates)
         exit_dates_pd = pd.to_datetime(exit_dates)
         entry_prices = df.loc[df.index.intersection(entry_dates_pd), price_col].values
         exit_prices = df.loc[df.index.intersection(exit_dates_pd), price_col].values
 
-        # Only plot if we have valid data and masks
-        if len(entry_prices) > 0 and len(win_mask) > 0:
-            # Plot winning trades
-            if np.any(win_mask) and len(entry_prices) >= len(win_mask):
-                win_indices = np.where(win_mask)[0]
-                if len(win_indices) <= len(entry_prices):
-                    plt.scatter(entry_dates_pd[win_indices], entry_prices[win_indices], color='green', marker='^', label='Entry', zorder=5, s=100)
-                    plt.scatter(exit_dates_pd[win_indices], exit_prices[win_indices], color='red', marker='v', label='Exit', zorder=5, s=100)
-            # Plot losing trades
-            if np.any(loss_mask) and len(entry_prices) >= len(loss_mask):
-                loss_indices = np.where(loss_mask)[0]
-                if len(loss_indices) <= len(entry_prices):
-                    plt.scatter(entry_dates_pd[loss_indices], entry_prices[loss_indices], color='green', marker='^', zorder=5, s=100, alpha=0.5)
-                    plt.scatter(exit_dates_pd[loss_indices], exit_prices[loss_indices], color='red', marker='v', zorder=5, s=100, alpha=0.5)
+        # Always plot all trades with full opacity
+        if len(entry_prices) > 0 and len(exit_prices) > 0:
+            n_trades = min(len(entry_dates_pd), len(exit_dates_pd), len(entry_prices), len(exit_prices))
+            plt.scatter(entry_dates_pd[:n_trades], entry_prices[:n_trades], color='green', marker='^', label='Entry', zorder=5, s=100)
+            plt.scatter(exit_dates_pd[:n_trades], exit_prices[:n_trades], color='red', marker='v', label='Exit', zorder=5, s=100)
 
     plt.xlabel('Date')
     plt.ylabel('Price')
@@ -391,12 +380,15 @@ def RSI(df, startyear, stock, df_filtered=None):
     returns = []
     pos = 0
     df['RSI'] = RSIIndicator(close=df['close_series'], window=14).rsi()
+    # Ensure df.index is DatetimeIndex
+    df.index = pd.to_datetime(df.index)
     for i in range(1, len(df)):
+        idx_entry = df.index[i] if isinstance(df.index[i], pd.Timestamp) else pd.to_datetime(df.index[i])
         # Buy: RSI crosses above 30
         if df['RSI'].iloc[i-1] < 30 and df['RSI'].iloc[i] >= 30 and pos == 0:
             pos = 1
             bp = df['close_series'].iloc[i]
-            entry_dates.append(df.index[i])
+            entry_dates.append(idx_entry)
         # Sell: RSI crosses below 70
         elif pos == 1 and df['RSI'].iloc[i-1] > 70 and df['RSI'].iloc[i] <= 70:
             pos = 0
@@ -404,13 +396,14 @@ def RSI(df, startyear, stock, df_filtered=None):
             pc = float((sp/bp-1))
             percentchange.append(pc)
             returns.append(pc)
-            exit_dates.append(df.index[i])
+            exit_dates.append(idx_entry)
     if pos == 1:
         sp = df['close_series'].iloc[-1]
         pc = float((sp/bp-1))
         percentchange.append(pc)
         returns.append(pc)
-        exit_dates.append(df.index[-1])
+        idx_exit = df.index[-1] if isinstance(df.index[-1], pd.Timestamp) else pd.to_datetime(df.index[-1])
+        exit_dates.append(idx_exit)
     calcvalue = 100
     for i in percentchange:
         calcvalue *= (1 + (i))
@@ -502,10 +495,10 @@ def MACD(df, startyear, df_filtered=None):
     macd_indicator = MACDIndicator(close=df['close_series'], window_slow=30, window_fast=12, window_sign=9)
     df['MACD'] = macd_indicator.macd()
     df['Signal'] = macd_indicator.macd_signal()
+    # Ensure df.index is DatetimeIndex
+    df.index = pd.to_datetime(df.index)
     for i in range(1, len(df)):
-        # Always convert index to pd.Timestamp for safety
         idx_entry = df.index[i] if isinstance(df.index[i], pd.Timestamp) else pd.to_datetime(df.index[i])
-        idx_prev = df.index[i-1] if isinstance(df.index[i-1], pd.Timestamp) else pd.to_datetime(df.index[i-1])
         # Buy: MACD crosses above signal
         if df['MACD'].iloc[i-1] < df['Signal'].iloc[i-1] and df['MACD'].iloc[i] >= df['Signal'].iloc[i] and pos == 0:
             pos = 1
