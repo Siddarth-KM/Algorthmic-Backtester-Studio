@@ -1,5 +1,7 @@
 import matplotlib
 matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+plt.style.use('dark_background')
 import pandas as pd
 import yfinance as yf
 import datetime as dt
@@ -72,42 +74,44 @@ def calculate_advanced_stats(returns, entry_dates, exit_dates, df, final_value=1
 def plot_trades_ml(df, entry_dates, exit_dates, returns, title, stats, price_col='Close'):
     plt.figure(figsize=(12, 6))
     ax = plt.gca()
-    # Use dark theme for RWB and ML strategies
-    if 'RWB Strategy' in title or 'ML Strategy' in title:
-        plt.style.use('dark_background')
-        ax.set_facecolor('black')
-        plt.gcf().patch.set_facecolor('black')
-        ax.tick_params(colors='white')
-        ax.xaxis.label.set_color('white')
-        ax.yaxis.label.set_color('white')
-        ax.title.set_color('white')
-    
+    ax.set_facecolor('black')
+    plt.gcf().patch.set_facecolor('black')
+    ax.tick_params(colors='white')
+    ax.xaxis.label.set_color('white')
+    ax.yaxis.label.set_color('white')
+    ax.title.set_color('white')
+
     # Price line
     plt.plot(df.index, df[price_col], color='tab:gray', label='Stock Price', linewidth=2, zorder=1)
-    
+
     # Buy & hold line
     plt.plot([df.index[0], df.index[-1]],
              [df[price_col].iloc[0], df[price_col].iloc[-1]],
              linestyle='--', color='orange', linewidth=2, label='Buy & Hold Return', zorder=0)
-    
+
     # Blue in-position segments (only if there are trades)
     if entry_dates and exit_dates:
-        for entry, exit_, is_win in zip(entry_dates, exit_dates, np.array(returns) > 0):
+        # Convert all entry/exit dates to pd.Timestamp for robust comparison
+        entry_dates_pd = [pd.to_datetime(e) if not isinstance(e, pd.Timestamp) else e for e in entry_dates]
+        exit_dates_pd = [pd.to_datetime(e) if not isinstance(e, pd.Timestamp) else e for e in exit_dates]
+        # Also ensure df.index is all pd.Timestamp
+        df.index = pd.to_datetime(df.index)
+        for entry, exit_, is_win in zip(entry_dates_pd, exit_dates_pd, np.array(returns) > 0):
             if entry in df.index and exit_ in df.index:
                 idx_entry = df.index.get_loc(entry)
                 idx_exit = df.index.get_loc(exit_)
                 segment = df.iloc[idx_entry:idx_exit+1]
                 plt.plot(segment.index, segment[price_col], color='royalblue', linewidth=3, alpha=0.7, zorder=2)
-    
+
     # Entry/exit markers (only if there are trades)
     if entry_dates and exit_dates and returns:
         win_mask = np.array(returns) > 0
         loss_mask = ~win_mask
         entry_dates_pd = pd.to_datetime(entry_dates)
         exit_dates_pd = pd.to_datetime(exit_dates)
-        entry_prices = df.loc[entry_dates_pd.intersection(df.index), price_col].values
-        exit_prices = df.loc[exit_dates_pd.intersection(df.index), price_col].values
-        
+        entry_prices = df.loc[df.index.intersection(entry_dates_pd), price_col].values
+        exit_prices = df.loc[df.index.intersection(exit_dates_pd), price_col].values
+
         # Only plot if we have valid data and masks
         if len(entry_prices) > 0 and len(win_mask) > 0:
             # Plot winning trades
@@ -116,28 +120,27 @@ def plot_trades_ml(df, entry_dates, exit_dates, returns, title, stats, price_col
                 if len(win_indices) <= len(entry_prices):
                     plt.scatter(entry_dates_pd[win_indices], entry_prices[win_indices], color='green', marker='^', label='Entry', zorder=5, s=100)
                     plt.scatter(exit_dates_pd[win_indices], exit_prices[win_indices], color='red', marker='v', label='Exit', zorder=5, s=100)
-            
             # Plot losing trades
             if np.any(loss_mask) and len(entry_prices) >= len(loss_mask):
                 loss_indices = np.where(loss_mask)[0]
                 if len(loss_indices) <= len(entry_prices):
                     plt.scatter(entry_dates_pd[loss_indices], entry_prices[loss_indices], color='green', marker='^', zorder=5, s=100, alpha=0.5)
                     plt.scatter(exit_dates_pd[loss_indices], exit_prices[loss_indices], color='red', marker='v', zorder=5, s=100, alpha=0.5)
-    
+
     plt.xlabel('Date')
     plt.ylabel('Price')
     plt.title(title)
     plt.legend(loc='lower left', fontsize=9, framealpha=0.8)
     plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout()
-    
+
     # Save plot to base64 string for web display - REDUCED DPI for faster processing
     img_buffer = io.BytesIO()
     plt.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
     img_buffer.seek(0)
     img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
     plt.close()  # Close the figure to free memory
-    
+
     return img_base64
 
 def ATR_Stop(df, startyear, stock, df_filtered=None):
@@ -500,11 +503,14 @@ def MACD(df, startyear, df_filtered=None):
     df['MACD'] = macd_indicator.macd()
     df['Signal'] = macd_indicator.macd_signal()
     for i in range(1, len(df)):
+        # Always convert index to pd.Timestamp for safety
+        idx_entry = df.index[i] if isinstance(df.index[i], pd.Timestamp) else pd.to_datetime(df.index[i])
+        idx_prev = df.index[i-1] if isinstance(df.index[i-1], pd.Timestamp) else pd.to_datetime(df.index[i-1])
         # Buy: MACD crosses above signal
         if df['MACD'].iloc[i-1] < df['Signal'].iloc[i-1] and df['MACD'].iloc[i] >= df['Signal'].iloc[i] and pos == 0:
             pos = 1
             bp = df['close_series'].iloc[i]
-            entry_dates.append(df.index[i])
+            entry_dates.append(idx_entry)
         # Sell: MACD crosses below signal
         elif pos == 1 and df['MACD'].iloc[i-1] > df['Signal'].iloc[i-1] and df['MACD'].iloc[i] <= df['Signal'].iloc[i]:
             pos = 0
@@ -512,13 +518,14 @@ def MACD(df, startyear, df_filtered=None):
             pc = float((sp/bp-1))
             percentchange.append(pc)
             returns.append(pc)
-            exit_dates.append(df.index[i])
+            exit_dates.append(idx_entry)
     if pos == 1:
         sp = df['close_series'].iloc[-1]
         pc = float((sp/bp-1))
         percentchange.append(pc)
         returns.append(pc)
-        exit_dates.append(df.index[-1])
+        idx_exit = df.index[-1] if isinstance(df.index[-1], pd.Timestamp) else pd.to_datetime(df.index[-1])
+        exit_dates.append(idx_exit)
     calcvalue = 100
     for i in percentchange:
         i = float(i)

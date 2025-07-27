@@ -3,9 +3,8 @@ from flask_cors import CORS
 import datetime as dt
 import pandas as pd
 import yfinance as yf
-from backtester_main import run_standard_backtest, RWB_daily_signal
+from backtester_main import run_standard_backtest
 from ML_Project import run_ml_backtest
-import concurrent.futures
 import logging
 
 logging.basicConfig(filename='app.log', level=logging.ERROR, format='%(asctime)s %(levelname)s %(message)s')
